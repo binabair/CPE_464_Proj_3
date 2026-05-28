@@ -69,7 +69,7 @@ combHeader:
 
 # clean targets for Solaris and Linux
 clean: 
-	-@find $(CURDIR) -name "*.o" | xargs rm -f
-
+	-@find "$(CURDIR)" -name "*.o" -exec rm -f {} \;
+	
 clean-full: clean
 	-@rm -f ../*libcpe464*.a
