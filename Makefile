@@ -9,7 +9,7 @@ SRC = networks.c  gethostbyname.c safeUtil.c pollLib.c createPDU.c
 OBJS = networks.o gethostbyname.o safeUtil.o pollLib.o createPDU.o
 
 #uncomment next two lines if your using sendtoErr() library
-LIBS += libcpe464.2.21.a -lstdc++ -ldl
+LIBS += libcpe464.a.b.a -lstdc++ -ldl
 CFLAGS += -D__LIBCPE464_
 
 all:  rcopy server
