@@ -12,7 +12,6 @@
 
 #include "gethostbyname.h"
 #include "networks.h"
-#include "safeUtil.h"
 #include "createPDU.h"
 #include "cpe464.h"
 
