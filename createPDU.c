@@ -65,3 +65,23 @@ void printPDU(uint8_t *pduBuffer, int pduLen){
     printf("Payload Length: %d\n", payloadLen);
     printf("Payload: %.*s\n", payloadLen, payload);
 }
+
+int getSequenceNum(uint8_t *pduBuffer){
+    uint32_t seqNum;
+    memcpy(&seqNum, pduBuffer, sizeof(seqNum));
+    return ntohl(seqNum); // convert back to host order
+}
+
+int validateChecksum(uint8_t *pduBuffer, int pduLen){
+    return in_cksum((unsigned short *)pduBuffer, pduLen) == 0;
+}
+
+int getFlag(uint8_t *pduBuffer){
+    uint8_t flag;
+    memcpy(&flag, pduBuffer + 6, sizeof(flag));
+    return flag;
+}
+
+int getPayloadLen(int pduLen){
+    return pduLen - 7; // total length minus header size
+}

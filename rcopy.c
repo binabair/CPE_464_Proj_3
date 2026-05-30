@@ -77,15 +77,13 @@ int checkArgs(int argc, char * argv[]){
     int portNumber = 0;
     /* check command line arguments  */
 	
-	if (argc != 4)
+	if (argc != 8)
 	{
-		printf("usage: %s error-rate host-name port-number \n", argv[0]);
+		printf("usage: %s from-file to-file window-size buffer-size error-rate remote-machine remote-port\n", argv[0]);
 		exit(1);
 	}
 
-	portNumber = atoi(argv[3]);
-
-	return portNumber;
+	return argv;
 }
 
 void checkErrorRate(double errorRate)
