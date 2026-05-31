@@ -27,7 +27,7 @@
 typedef struct {
     uint32_t seqNum;
     int pduLen;
-    int valid;
+    int active; // 1 if packet has yet to be RRd, 0 if valid RR came through
     char pdu[MAX_PDU_SIZE];
 } WindowPacket;
 
@@ -42,13 +42,11 @@ typedef struct{
 Window *windowSetUp(uint32_t windowSize){
     Window *window = malloc(sizeof(Window));
     if (window == NULL) {
-        fprintf(stderr, "Error allocating memory for window\n");
         return NULL;
     }
 
     window->packets = calloc(windowSize, sizeof(WindowPacket));
     if (window->packets == NULL) {
-        fprintf(stderr, "Error allocating memory for window packets\n");
         free(window);
         return NULL;
     }
@@ -70,17 +68,15 @@ void windowTeardown(Window *window){
 
 bool isWindowOpen(Window *window){
     if (window == NULL) {
-        fprintf(stderr, "Window is NULL\n");
         return false;
     }
     return window->current < window->upper;
 }
 
-//THIS WILL PROBABLY NEED TO BE FIXED
+//LOOK HERE IF SHIT GOES POORLY THIS WILL PROBABLY NEED TO BE FIXED
 uint32_t getNextSeqNum(Window *window){
     if (window == NULL) {
-        fprintf(stderr, "Window is NULL\n");
-        return 0; // or some error code
+        return 0; 
     }
     return window->current;
 }
@@ -91,7 +87,88 @@ uint32_t window_lowest_seq(Window *window) {
 
 int windowAddPacket(Window *window, char *pdu, int pduLen) {
     int index;
-    
+
+    //error check that hoe
+    if (window == NULL) { //window doesnt actually exist yet
+        return -1;
+    }
+
+    if (!isWindowOpen(window)) { //window closed
+        return -1;
+    }
+
+    if (pduLen <= 0 || pduLen > MAX_PDU_SIZE) { //bad pdu length
+        return -1;
+    }
+
+    //add packet to window
+    index = window->current % window->windowSize;
+    window->packets[index].seqNum = window->current;
+    window->packets[index].pduLen = pduLen;
+    window->packets[index].valid = 1;
+    memcpy(window->packets[index].pdu, pdu, pduLen);
+
+    window->current++;
+    return 0;
+}
+
+int getWindowPacket(Window *window, uint32_t seqNum, char *outPDU){
+    int index;
+    WindowPacket *packet;
+
+    if (window == NULL) {
+        return -1;
+    }
+
+    if (seqNum < window->lower || seqNum >= window->current) {
+        return -1;
+    }
+
+    index = seqNum % window->windowSize;
+    packet = &window->packets[index];
+
+    if (packet->valid || packet->seqNum != seqNum) {
+        return -1;
+    }
+
+    memcpy(outPDU, packet->pdu, packet->pduLen);
+    return packet->pduLen;
+}
+
+int getLowestWindowPacket(Window *window, uint32_t *seqNum, char *outPDU){
+    int pduLen;
+
+    if (window == NULL || outPDU == NULL || seqNum == NULL) {
+        return -1;
+    }
+
+    if (isWindowOpen(window)) {
+        return -1;
+    }
+
+    pduLen = getWindowPacket(window, window->lower, outPDU);
+    if (pduLen < 0) {
+        return -1;
+    }
+
+    *seqNum = window->lower;
+    return pduLen;
+}
+
+void processRR(Window *window, uint32_t RRSeqNum){
+    uint32_t seq;
+    uint32_t index;
+
+    if (window == NULL || RRSeqNum <= window->lower || RRSeqNum > window->current) {
+        return;
+    }
+
+    for (seq = window->lower; seq < RRSeqNum; seq++) {
+        index = seq % window->windowSize;
+        window->packets[index].valid = 0;
+    }
+
+
 }
 
 
