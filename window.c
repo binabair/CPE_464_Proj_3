@@ -22,7 +22,7 @@
 
 //sender does windowing
 //creating the sliding window protocol header and payload
-#define MAX_PDU_SIZE 1024
+#define MAX_PDU_SIZE 1407
 
 typedef struct {
     uint32_t seqNum;
@@ -105,7 +105,7 @@ int windowAddPacket(Window *window, char *pdu, int pduLen) {
     index = window->current % window->windowSize;
     window->packets[index].seqNum = window->current;
     window->packets[index].pduLen = pduLen;
-    window->packets[index].valid = 1;
+    window->packets[index].active = 1;
     memcpy(window->packets[index].pdu, pdu, pduLen);
 
     window->current++;
@@ -116,18 +116,14 @@ int getWindowPacket(Window *window, uint32_t seqNum, char *outPDU){
     int index;
     WindowPacket *packet;
 
-    if (window == NULL) {
-        return -1;
-    }
-
-    if (seqNum < window->lower || seqNum >= window->current) {
+    if (window == NULL || outPDU == NULL ||seqNum < window->lower || seqNum >= window->current) {
         return -1;
     }
 
     index = seqNum % window->windowSize;
     packet = &window->packets[index];
 
-    if (packet->valid || packet->seqNum != seqNum) {
+    if (packet->active == 0 || packet->seqNum != seqNum) {
         return -1;
     }
 
@@ -142,7 +138,7 @@ int getLowestWindowPacket(Window *window, uint32_t *seqNum, char *outPDU){
         return -1;
     }
 
-    if (isWindowOpen(window)) {
+    if (window->lower == window->current) { //there arent any packets
         return -1;
     }
 
@@ -159,16 +155,21 @@ void processRR(Window *window, uint32_t RRSeqNum){
     uint32_t seq;
     uint32_t index;
 
-    if (window == NULL || RRSeqNum <= window->lower || RRSeqNum > window->current) {
+    if (window == NULL || RRSeqNum <= window->lower) {
         return;
+    }
+
+    if (RRSeqNum > window->current){
+        RRSeqNum = window->current;
     }
 
     for (seq = window->lower; seq < RRSeqNum; seq++) {
         index = seq % window->windowSize;
-        window->packets[index].valid = 0;
+        window->packets[index].active = 0;
     }
 
-
+    window->lower = RRSeqNum;
+    window->upper = window->lower + window->windowSize;
 }
 
 
