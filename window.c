@@ -22,22 +22,6 @@
 
 //sender does windowing
 //creating the sliding window protocol header and payload
-#define MAX_PDU_SIZE 1407
-
-typedef struct {
-    uint32_t seqNum;
-    int pduLen;
-    int active; // 1 if packet has yet to be RRd, 0 if valid RR came through
-    char pdu[MAX_PDU_SIZE];
-} WindowPacket;
-
-typedef struct{
-    WindowPacket *packets;
-    uint32_t windowSize;
-    uint32_t lower;
-    uint32_t upper;
-    uint32_t current;
-} Window;
 
 Window *windowSetUp(uint32_t windowSize){
     Window *window = malloc(sizeof(Window));

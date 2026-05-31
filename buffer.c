@@ -17,9 +17,7 @@
 #include "buffer.h"
 
 #define MAX_DATA_SIZE 1400
-#define SEND_RR 1
-#define SEND_SREJ 2
-#define SEND_IGNORE 3
+
 
 typedef struct {
     uint32_t seqNum;
@@ -36,7 +34,7 @@ typedef struct {
     int outputFD;
 } Buffer;
 
-Buffer *bufferSetup(uint32_t bufferSize, int outputFD){
+Buffer *bufferSetUp(uint32_t bufferSize, int outputFD){
     Buffer *buffer = malloc(sizeof(Buffer));
     if (buffer == NULL) {
         return NULL;
