@@ -44,6 +44,7 @@ int sendFilenameResponse(ServerInfo *info, uint8_t status);
 int sendServerControlPacket(ServerInfo *info, uint8_t flag, uint8_t *payload, int payloadLen);
 void receiveFile(ServerInfo *info);
 int checkArgs(int argc, char *argv[]);
+void handleValidFilenamePacket(int socketNum, uint8_t *pdu, int pduLen, struct sockaddr_in6 *client, socklen_t clientLen, double errorRate);
 
 
 void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockaddr_in6 *client, socklen_t clientLen, double errorRate){
@@ -60,6 +61,7 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockad
     info.controlSeqNum = 0;
 
     if (parseFilenamePacket(&info, firstPDU, firstLen) < 0){
+        close(info.socketNum);
         return;
     }
 
@@ -68,6 +70,7 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockad
     if (info.outputFd < 0){
         status = 1;
         sendFilenameResponse(&info, status);
+        close(info.socketNum);
         return;
     }
 
@@ -235,7 +238,7 @@ void handleValidFilenamePacket(int socketNum, uint8_t *pdu, int pduLen, struct s
     pid = fork();
 
     if (pid == 0) {
-        sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_ON);
+        sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_OFF, RSEED_ON);
         processClient(socketNum, pdu, pduLen, client, clientLen, errorRate);
 
         exit(0);

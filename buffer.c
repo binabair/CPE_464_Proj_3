@@ -26,30 +26,35 @@ int getPayloadLen(int pduLen);
 BufferState flushingState(int socketNum, int outputFd, struct sockaddr *client, socklen_t clientLen);
 int getIndex(uint32_t seqNum);
 
-BufferEntry *buffer = NULL;
-int windowSize = 0;
-uint32_t expected = 0;
-uint32_t highest = 0;
-BufferState state = INORDER;
-uint32_t ackSeqNum = 0;
-uint32_t lastSREJ = UINT32_MAX;
+
+typedef struct{
+    BufferEntry *buffer;
+    uint32_t windowSize;
+    uint32_t expected;
+    uint32_t highest;
+    BufferState state;
+    uint32_t ackSeqNum;
+    uint32_t lastSREJ;
+} BufferContext;
+
+static BufferContext context;
 
 void bufferInit(int size){
     int i;
 
-    windowSize = size;
-    expected = 0;
-    highest = 0;
-    state = INORDER;
-    ackSeqNum = 0;
-    lastSREJ = UINT32_MAX;
+    context.windowSize = size;
+    context.expected = 0;
+    context.highest = 0;
+    context.state = INORDER;
+    context.ackSeqNum = 0;
+    context.lastSREJ = UINT32_MAX;
 
-    buffer = malloc(sizeof(BufferEntry) * windowSize);
+    context.buffer = malloc(sizeof(BufferEntry) * context.windowSize);
 
-    for (i = 0; i < windowSize; i++) {
-        buffer[i].validFlag = 0;
-        buffer[i].dataLen = 0;
-        buffer[i].seqNum = 0;
+    for (i = 0; i < context.windowSize; i++) {
+        context.buffer[i].validFlag = 0;
+        context.buffer[i].dataLen = 0;
+        context.buffer[i].seqNum = 0;
     }
 }
 
@@ -73,36 +78,36 @@ void bufferProcessPDU(int socketNum, int outputFd, uint8_t *pdu, int pduLen, str
     payloadLen = getPayloadLen(pduLen);
     payload = pdu + HEADER_LEN;
 
-    switch (state) {
+    switch (context.state) {
         case INORDER:
-            state = inOrderState(socketNum, outputFd, recvSeq, payload, payloadLen, client, clientLen);
+            context.state = inOrderState(socketNum, outputFd, recvSeq, payload, payloadLen, client, clientLen);
             break;
 
         case BUFFERING:
-            state = bufferingState(socketNum, outputFd, recvSeq, payload, payloadLen, client, clientLen);
+            context.state = bufferingState(socketNum, outputFd, recvSeq, payload, payloadLen, client, clientLen);
             break;
 
         case FLUSHING:
-            state = flushingState(socketNum, outputFd, client, clientLen);
+            context.state = flushingState(socketNum, outputFd, client, clientLen);
             break;
     }
 }
 
 BufferState inOrderState(int socketNum, int outputFd, uint32_t recvSeq, uint8_t *payload, int payloadLen, struct sockaddr *client, socklen_t clientLen){
-    if (recvSeq == expected) {
+    if (recvSeq == context.expected) {
         writePacketToDisk(outputFd, payload, payloadLen);
-        highest = expected;
-        expected++;
+        context.highest = context.expected;
+        context.expected++;
 
         sendRR(socketNum, client, clientLen);
         return INORDER;
     }
 
-    if (recvSeq > expected) {
+    if (recvSeq > context.expected) {
         bufferPacket(recvSeq, payload, payloadLen);
-        highest = recvSeq;
+        context.highest = recvSeq;
 
-        sendSREJ(socketNum, client, clientLen);
+        sendSREJOnce(socketNum, client, clientLen);
         return BUFFERING;
     }
 
@@ -112,18 +117,18 @@ BufferState inOrderState(int socketNum, int outputFd, uint32_t recvSeq, uint8_t 
 
 
 BufferState bufferingState(int socketNum, int outputFd, uint32_t recvSeq, uint8_t *payload, int payloadLen, struct sockaddr *client, socklen_t clientLen) {
-    if (recvSeq == expected) {
-        lastSREJ = UINT32_MAX;
+    if (recvSeq == context.expected) {
+        context.lastSREJ = UINT32_MAX;
         writePacketToDisk(outputFd, payload, payloadLen);
-        expected++;
+        context.expected++;
         return flushingState(socketNum, outputFd, client, clientLen);
     }
 
-    if (recvSeq > expected) {
+    if (recvSeq > context.expected) {
         bufferPacket(recvSeq, payload, payloadLen);
 
-        if (recvSeq > highest) {
-            highest = recvSeq;
+        if (recvSeq > context.highest) {
+            context.highest = recvSeq;
         }
 
         sendSREJOnce(socketNum, client, clientLen);
@@ -138,20 +143,20 @@ BufferState flushingState(int socketNum, int outputFd, struct sockaddr *client, 
     int index;
 
     while (1) {
-        index = getIndex(expected);
+        index = getIndex(context.expected);
 
-        if (buffer[index].validFlag == 0 ||
-            buffer[index].seqNum != expected) {
+        if (context.buffer[index].validFlag == 0 ||
+            context.buffer[index].seqNum != context.expected) {
             break;
         }
 
-        writePacketToDisk(outputFd, buffer[index].data, buffer[index].dataLen);
-        buffer[index].validFlag = 0;
-        expected++;
+        writePacketToDisk(outputFd, context.buffer[index].data, context.buffer[index].dataLen);
+        context.buffer[index].validFlag = 0;
+        context.expected++;
     }
 
-    if (expected <= highest) {
-        sendSREJ(socketNum, client, clientLen);
+    if (context.expected <= context.highest) {
+        sendSREJOnce(socketNum, client, clientLen);
         return BUFFERING;
     }
 
@@ -161,12 +166,12 @@ BufferState flushingState(int socketNum, int outputFd, struct sockaddr *client, 
 
 
 void bufferFree(void){
-    free(buffer);
-    buffer = NULL;
+    free(context.buffer);
+    context.buffer = NULL;
 }
 
 int getIndex(uint32_t seqNum){
-    return seqNum % windowSize;
+    return seqNum % context.windowSize;
 }
 
 void sendControl(int socketNum, struct sockaddr *client, socklen_t clientLen, uint8_t flag, uint32_t controlSeq){
@@ -175,7 +180,7 @@ void sendControl(int socketNum, struct sockaddr *client, socklen_t clientLen, ui
 
     int pduLen = createPDU(
         pdu,
-        ackSeqNum++,
+        context.ackSeqNum++,
         flag,
         (uint8_t *)&netSeq,
         sizeof(uint32_t)
@@ -185,11 +190,11 @@ void sendControl(int socketNum, struct sockaddr *client, socklen_t clientLen, ui
 }
 
 void sendRR(int socketNum, struct sockaddr *client, socklen_t clientLen){
-    sendControl(socketNum, client, clientLen, FLAG_RR, expected);
+    sendControl(socketNum, client, clientLen, FLAG_RR, context.expected);
 }
 
 void sendSREJ(int socketNum, struct sockaddr *client, socklen_t clientLen){
-    sendControl(socketNum, client, clientLen, FLAG_SREJ, expected);
+    sendControl(socketNum, client, clientLen, FLAG_SREJ, context.expected);
 }
 
 void writePacketToDisk(int outputFd, uint8_t *data, int len){
@@ -198,17 +203,17 @@ void writePacketToDisk(int outputFd, uint8_t *data, int len){
 
 void sendSREJOnce(int socketNum, struct sockaddr *client, socklen_t clientLen)
 {
-    if (lastSREJ != expected) {
+    if (context.lastSREJ != context.expected) {
         sendSREJ(socketNum, client, clientLen);
-        lastSREJ = expected;
+        context.lastSREJ = context.expected;
     }
 }
 
 void bufferPacket(uint32_t seqNum, uint8_t *data, int dataLen){
     int index = getIndex(seqNum);
 
-    buffer[index].seqNum = seqNum;
-    buffer[index].dataLen = dataLen;
-    buffer[index].validFlag = 1;
-    memcpy(buffer[index].data, data, dataLen);
+    context.buffer[index].seqNum = seqNum;
+    context.buffer[index].dataLen = dataLen;
+    context.buffer[index].validFlag = 1;
+    memcpy(context.buffer[index].data, data, dataLen);
 }
