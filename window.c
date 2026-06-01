@@ -156,5 +156,17 @@ void processRR(Window *window, uint32_t RRSeqNum){
     window->upper = window->lower + window->windowSize;
 }
 
+int processSREJ(Window *window, uint32_t SREJSeqNum, char *outPDU){
+    if (window == NULL || outPDU == NULL) {
+        return -1;
+    }
+
+    if (SREJSeqNum < window->lower || SREJSeqNum >= window->current) {
+        return -1;
+    }
+
+    return getWindowPacket(window, SREJSeqNum, outPDU);
+}
+
 
 

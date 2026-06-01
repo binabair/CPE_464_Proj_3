@@ -2,22 +2,21 @@
 #define BUFFER_H
 
 #include <stdint.h>
+#include <sys/socket.h>
 
-#define SEND_RR 1
-#define SEND_SREJ 2
-#define SEND_IGNORE 3
+#define MAX_PAYLOAD 1400
 
-typedef struct Buffer Buffer;
+typedef struct {
+    uint32_t seqNum;
+    int dataLen;
+    int validFlag;
+    uint8_t data[MAX_PAYLOAD];
+} BufferEntry;
 
-Buffer *bufferSetUp(uint32_t bufferSize, int outputFd);
-void bufferTeardown(Buffer *buffer);
-int inBufferWindow(Buffer *buffer, uint32_t seqNum);
-int writeData(Buffer *buffer, char *data, int dataLen);
-int bufferStorePacket(Buffer *buffer, uint32_t seqNum, char *data, int dataLen);
-int bufferHasPacket(Buffer *buffer, uint32_t seqNum);
-int bufferWriteSlide(Buffer *buffer);
-uint32_t getLower(Buffer *buffer);
-uint32_t getUpper(Buffer *buffer);
-int processData(Buffer *buffer, uint32_t seqNum, const char *data, int dataLen, uint32_t *responseSeq);
+typedef enum {
+    INORDER,
+    BUFFERING,
+    FLUSHING
+} BufferState;
 
 #endif

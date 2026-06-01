@@ -21,32 +21,53 @@
 #define MAXBUF 80
 #define MAXPDU 1500
 
+typedef enum {
+    START_STATE,
+    FILENAME_STATE,
+    SEND_DATA_STATE,
+    WINDOW_CLOSED_STATE,
+    EOF_STATE,
+    DONE_STATE,
+    ERROR_STATE
+} State;
+
 void talkToServer(int socketNum, struct sockaddr_in6 * server);
 int readFromStdin(char * buffer);
 int checkArgs(int argc, char * argv[]);
 void checkErrorRate(double errorRate);
 
-int main (int argc, char *argv[])
- {
-	int socketNum = 0;				
-	struct sockaddr_in6 server;		// Supports 4 and 6 but requires IPv6 struct
-	int portNumber = 0;
-	double errorRate = 0;
-	
-	portNumber = checkArgs(argc, argv);
+void stateHandler(){
+    State state = START_STATE;
 
-	errorRate = atof(argv[1]);
-	checkErrorRate(errorRate);
-	sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
-	
-	socketNum = setupUdpClientToServer(&server, argv[2], portNumber);
-	
-	talkToServer(socketNum, &server);
-	
-	close(socketNum);
+    while (state != DONE_STATE && state != ERROR_STATE){
+        switch(state){
+            case START_STATE:
+                state = startState(...);
+                break;
 
-	return 0;
+            case FILENAME_STATE:
+                state = filenameState(...);
+                break;
+
+            case SEND_DATA_STATE:
+                state = sendDataState(...);
+                break;
+
+            case WINDOW_CLOSED_STATE:
+                state = windowClosedState(...);
+                break;
+
+            case EOF_STATE:
+                state = eofState(...);
+                break;
+
+            default:
+                state = ERROR_STATE;
+                break;
+        }
+    }
 }
+
 
 int readFromStdin(char * buffer)
 {
@@ -93,5 +114,28 @@ void checkErrorRate(double errorRate)
         fprintf(stderr, "Error rate must be >= 0 and < 1\n");
         exit(1);
     }
+}
+
+
+int main (int argc, char *argv[])
+ {
+	int socketNum = 0;				
+	struct sockaddr_in6 server;		// Supports 4 and 6 but requires IPv6 struct
+	int portNumber = 0;
+	double errorRate = 0;
+	
+	portNumber = checkArgs(argc, argv);
+
+	errorRate = atof(argv[1]);
+	checkErrorRate(errorRate);
+	sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
+	
+	socketNum = setupUdpClientToServer(&server, argv[2], portNumber);
+	
+	talkToServer(socketNum, &server);
+	
+	close(socketNum);
+
+	return 0;
 }
 
