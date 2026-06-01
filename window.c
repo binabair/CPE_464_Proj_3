@@ -169,4 +169,13 @@ int processSREJ(Window *window, uint32_t SREJSeqNum, char *outPDU){
 }
 
 
+bool isWindowEmpty(Window *window)
+{
+    if (window == NULL) {
+        return true;
+    }
+
+    return window->lower == window->current;
+}
+
 

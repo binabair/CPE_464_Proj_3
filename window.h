@@ -31,5 +31,6 @@ int getLowestWindowPacket(Window *window, uint32_t *seqNum, char *outPDU);
 void processRR(Window *window, uint32_t RRSeqNum);
 bool isWindowOpen(Window *window);
 int processSREJ(Window *window, uint32_t SREJSeqNum, char *outPDU);
+bool isWindowEmpty(Window *window);
 
 #endif 
