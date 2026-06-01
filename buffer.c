@@ -25,7 +25,7 @@ int getFlag(uint8_t *pduBuffer);
 int getPayloadLen(int pduLen);
 BufferState flushingState(int socketNum, int outputFd, struct sockaddr *client, socklen_t clientLen);
 int getIndex(uint32_t seqNum);
-
+void sendSREJOnce(int socketNum, struct sockaddr *client, socklen_t clientLen);
 
 typedef struct{
     BufferEntry *buffer;

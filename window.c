@@ -57,7 +57,7 @@ bool isWindowOpen(Window *window){
     return window->current < window->upper;
 }
 
-//LOOK HERE IF SHIT GOES POORLY THIS WILL PROBABLY NEED TO BE FIXED
+
 uint32_t getNextSeqNum(Window *window){
     if (window == NULL) {
         return 0; 
@@ -65,14 +65,14 @@ uint32_t getNextSeqNum(Window *window){
     return window->current;
 }
 
-uint32_t window_lowest_seq(Window *window) {
+uint32_t windowLowestSeq(Window *window) {
     return window->lower;
 }
 
 int windowAddPacket(Window *window, char *pdu, int pduLen) {
     int index;
 
-    //error check that hoe
+    //error check it
     if (window == NULL) { //window doesnt actually exist yet
         return -1;
     }

@@ -75,6 +75,7 @@ RcopyState sendEofState(RcopyInfo *info);
 RcopyState waitEofAckState(RcopyInfo *info);
 uint32_t getControlSeqNum(uint8_t *pdu);
 int sendControlPacket(RcopyInfo *info, uint8_t flag,uint8_t *payload, int payloadLen);
+int validateChecksum(uint8_t *pduBuffer, int pduLen);
 
 
 
@@ -164,7 +165,7 @@ RcopyState waitFilenameAckState(RcopyInfo *info){
         return WAIT_FILENAME_ACK;
     }
 
-    flag = getFlag((uint8_t *)pdu);
+    flag = pdu[6];
 
     if (flag != FLAG_FILENAME_RESPONSE){
         return WAIT_FILENAME_ACK;
@@ -185,6 +186,7 @@ RcopyState waitFilenameAckState(RcopyInfo *info){
     return SEND_DATA;
 }
 
+
 RcopyState sendDataState(RcopyInfo *info){
     char dataBuf[1400];
     char pdu[MAX_PDU_SIZE];
@@ -193,7 +195,7 @@ RcopyState sendDataState(RcopyInfo *info){
     uint32_t seqNum;
 
 	if (info->EOFReached){
-		if (window_lowest_seq(info->window) == getNextSeqNum(info->window)){
+		if (windowLowestSeq(info->window) == getNextSeqNum(info->window)){
 			return SEND_EOF;
 		}
 
@@ -214,7 +216,7 @@ RcopyState sendDataState(RcopyInfo *info){
     if (dataLen == 0){
 		info->EOFReached = 1;
 
-		if (window_lowest_seq(info->window) == getNextSeqNum(info->window)) {
+		if (windowLowestSeq(info->window) == getNextSeqNum(info->window)) {
 			return SEND_EOF;
 		}
 
@@ -269,7 +271,7 @@ RcopyState processAcksState(RcopyInfo *info){
     }
 
 	if (info->EOFReached &&
-		window_lowest_seq(info->window) == getNextSeqNum(info->window)){
+		windowLowestSeq(info->window) == getNextSeqNum(info->window)){
 		return SEND_EOF;
 	}
 
@@ -348,7 +350,7 @@ RcopyState waitEofAckState(RcopyInfo *info){
         return SEND_EOF;
     }
 
-    pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, NULL, NULL);
+    pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, (struct sockaddr *)&info->server, &info->serverLen);
 
     if (pduLen <= 0 || !validateChecksum((uint8_t *)pdu, pduLen)){
         return WAIT_EOF_ACK;
