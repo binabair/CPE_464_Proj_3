@@ -101,7 +101,7 @@ void receiveFile(ServerInfo *info){
     int pduLen;
     int pollResult;
     int flag;
-    int eofTries = 0;
+    int EOFTries = 0;
 
     while (1) {
         pollResult = pollCall(10000);
@@ -123,7 +123,7 @@ void receiveFile(ServerInfo *info){
         } else if (flag == FLAG_EOF) {
             sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
 
-            while (eofTries < 10) {
+            while (EOFTries < 10) {
                 pollResult = pollCall(1000);
 
                 if (pollResult == info->socketNum){
@@ -134,7 +134,7 @@ void receiveFile(ServerInfo *info){
                     }
                 }else{
                     sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
-                    eofTries++;
+                    EOFTries++;
                 }
             }
             return;
@@ -187,35 +187,26 @@ int checkArgs(int argc, char *argv[]){
     return portNumber;
 }
 
-
-int main(int argc, char *argv[]){
+int setupServer(int portNumber, double errorRate){
     int socketNum;
-    int portNumber;
-    double errorRate;
-    uint8_t pdu[MAX_PDU_SIZE];
-    int pduLen;
-    struct sockaddr_in6 client;
-    socklen_t clientLen;
-    pid_t pid;
-
-    portNumber = checkArgs(argc, argv);
-    errorRate = atof(argv[1]);
 
     sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
 
     socketNum = udpServerSetup(portNumber);
 
+    return socketNum;
+}
+
+void runServer(int socketNum, double errorRate){
+    uint8_t pdu[MAX_PDU_SIZE];
+    int pduLen;
+    struct sockaddr_in6 client;
+    socklen_t clientLen;
+
     while (1) {
         clientLen = sizeof(client);
 
-        pduLen = recvfromErr(
-            socketNum,
-            pdu,
-            MAX_PDU_SIZE,
-            0,
-            (struct sockaddr *)&client,
-            &clientLen
-        );
+        pduLen = recvfromErr(socketNum, pdu, MAX_PDU_SIZE, 0, (struct sockaddr *)&client, &clientLen);
 
         if (pduLen <= 0) {
             continue;
@@ -229,26 +220,35 @@ int main(int argc, char *argv[]){
             continue;
         }
 
-        pid = fork();
-
-        if (pid == 0) {
-            sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_ON);
-
-            processClient(
-                socketNum,
-                pdu,
-                pduLen,
-                &client,
-                clientLen,
-                errorRate
-            );
-
-            exit(0);
-        }
+        handleValidFilenamePacket(socketNum, pdu, pduLen, &client, clientLen, errorRate);
 
         while (waitpid(-1, NULL, WNOHANG) > 0) {
         }
     }
+}
+
+void handleValidFilenamePacket(int socketNum, uint8_t *pdu, int pduLen, struct sockaddr_in6 *client, socklen_t clientLen, double errorRate){
+    pid_t pid;
+    pid = fork();
+
+    if (pid == 0) {
+        sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_ON);
+        processClient(socketNum, pdu, pduLen, client, clientLen, errorRate);
+
+        exit(0);
+    }
+}
+
+int main(int argc, char *argv[]){
+    int socketNum;
+    int portNumber;
+    double errorRate;
+
+    portNumber = checkArgs(argc, argv);
+    errorRate = atof(argv[1]);
+
+    socketNum = setupServer(portNumber, errorRate);
+    runServer(socketNum, errorRate);
 
     close(socketNum);
     return 0;
