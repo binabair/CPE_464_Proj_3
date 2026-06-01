@@ -353,13 +353,25 @@ RcopyState waitEofAckState(RcopyInfo *info){
     pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, (struct sockaddr *)&info->server, &info->serverLen);
 
     if (pduLen <= 0 || !validateChecksum((uint8_t *)pdu, pduLen)){
-        return WAIT_EOF_ACK;
+		info->EOFTries++;
+
+		if (info->EOFTries >= 10){
+			return DONE;
+		}
+
+		return SEND_EOF;
     }
 
     flag = getFlag((uint8_t *)pdu);
 
     if (flag != FLAG_EOF_ACK){
-        return WAIT_EOF_ACK;
+		info->EOFTries++;
+
+		if (info->EOFTries >= 10){
+			return DONE;
+		}
+
+		return SEND_EOF;
     }
 
     sendControlPacket(info, FLAG_FINAL_ACK, NULL, 0);

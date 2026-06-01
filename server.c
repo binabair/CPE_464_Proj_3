@@ -9,6 +9,8 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <errno.h>
 
 #include "networks.h"
 #include "cpe464.h"
@@ -138,6 +140,9 @@ void receiveFile(ServerInfo *info){
                     if (pduLen > 0 && validateChecksum(pdu, pduLen) && getFlag(pdu) == FLAG_FINAL_ACK){
                         return;
                     }
+
+                    sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
+                    EOFTries++;
                 }else{
                     sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
                     EOFTries++;
@@ -233,6 +238,16 @@ void runServer(int socketNum, double errorRate){
     }
 }
 
+void reapChildren(int sig)
+{
+    int savedErrno = errno;
+
+    while (waitpid(-1, NULL, WNOHANG) > 0) {
+    }
+
+    errno = savedErrno;
+}
+
 void handleValidFilenamePacket(int socketNum, uint8_t *pdu, int pduLen, struct sockaddr_in6 *client, socklen_t clientLen, double errorRate){
     pid_t pid;
     pid = fork();
@@ -249,6 +264,8 @@ int main(int argc, char *argv[]){
     int socketNum;
     int portNumber;
     double errorRate;
+
+    signal(SIGCHLD, reapChildren);
 
     portNumber = checkArgs(argc, argv);
     errorRate = atof(argv[1]);
