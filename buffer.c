@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "window.h"
 #include "gethostbyname.h"
 #include "networks.h"
 #include "safeUtil.h"
