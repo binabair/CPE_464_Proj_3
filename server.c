@@ -46,10 +46,7 @@ void receiveFile(ServerInfo *info);
 int checkArgs(int argc, char *argv[]);
 
 
-void processClient(int socketNum, uint8_t *firstPDU, int firstLen,
-                   struct sockaddr_in6 *client, socklen_t clientLen,
-                   double errorRate)
-{
+void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockaddr_in6 *client, socklen_t clientLen, double errorRate){
     ServerInfo info;
     uint8_t status;
 
@@ -60,13 +57,13 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen,
     info.clientLen = clientLen;
     info.controlSeqNum = 0;
 
-    if (parseFilenamePacket(&info, firstPDU, firstLen) < 0) {
+    if (parseFilenamePacket(&info, firstPDU, firstLen) < 0){
         return;
     }
 
     info.outputFd = open(info.toFile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 
-    if (info.outputFd < 0) {
+    if (info.outputFd < 0){
         status = 1;
         sendFilenameResponse(&info, status);
         return;
@@ -86,42 +83,20 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen,
     close(info.outputFd);
 }
 
-int sendServerControlPacket(ServerInfo *info, uint8_t flag,
-                            uint8_t *payload, int payloadLen)
-{
+int sendServerControlPacket(ServerInfo *info, uint8_t flag, uint8_t *payload, int payloadLen){
     uint8_t pdu[MAX_PDU_SIZE];
     int pduLen;
 
-    pduLen = createPDU(
-        pdu,
-        info->controlSeqNum++,
-        flag,
-        payload,
-        payloadLen
-    );
+    pduLen = createPDU(pdu, info->controlSeqNum++, flag, payload, payloadLen);
 
-    return sendtoErr(
-        info->socketNum,
-        pdu,
-        pduLen,
-        0,
-        (struct sockaddr *)&info->client,
-        info->clientLen
-    );
+    return sendtoErr(info->socketNum, pdu, pduLen, 0, (struct sockaddr *)&info->client, info->clientLen);
 }
 
-int sendFilenameResponse(ServerInfo *info, uint8_t status)
-{
-    return sendServerControlPacket(
-        info,
-        FLAG_FILENAME_RESPONSE,
-        &status,
-        1
-    );
+int sendFilenameResponse(ServerInfo *info, uint8_t status){
+    return sendServerControlPacket(info, FLAG_FILENAME_RESPONSE, &status, 1);
 }
 
-void receiveFile(ServerInfo *info)
-{
+void receiveFile(ServerInfo *info){
     uint8_t pdu[MAX_PDU_SIZE];
     int pduLen;
     int pollResult;
@@ -131,75 +106,48 @@ void receiveFile(ServerInfo *info)
     while (1) {
         pollResult = pollCall(10000);
 
-        if (pollResult != info->socketNum) {
+        if (pollResult != info->socketNum){
             return;
         }
 
-        pduLen = recvfromErr(
-            info->socketNum,
-            pdu,
-            MAX_PDU_SIZE,
-            0,
-            NULL,
-            NULL
-        );
+        pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, NULL, NULL);
 
-        if (pduLen <= 0 || !validateChecksum(pdu, pduLen)) {
+        if (pduLen <= 0 || !validateChecksum(pdu, pduLen)){
             continue;
         }
 
         flag = getFlag(pdu);
 
-        if (flag == FLAG_DATA) {
-            bufferProcessPDU(
-                info->socketNum,
-                info->outputFd,
-                pdu,
-                pduLen,
-                (struct sockaddr *)&info->client,
-                info->clientLen
-            );
-        }
-        else if (flag == FLAG_EOF) {
+        if (flag == FLAG_DATA){
+            bufferProcessPDU(info->socketNum, info->outputFd, pdu, pduLen, (struct sockaddr *)&info->client,info->clientLen);
+        } else if (flag == FLAG_EOF) {
             sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
 
             while (eofTries < 10) {
                 pollResult = pollCall(1000);
 
-                if (pollResult == info->socketNum) {
-                    pduLen = recvfromErr(
-                        info->socketNum,
-                        pdu,
-                        MAX_PDU_SIZE,
-                        0,
-                        NULL,
-                        NULL
-                    );
+                if (pollResult == info->socketNum){
+                    pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, NULL, NULL);
 
-                    if (pduLen > 0 &&
-                        validateChecksum(pdu, pduLen) &&
-                        getFlag(pdu) == FLAG_FINAL_ACK) {
+                    if (pduLen > 0 && validateChecksum(pdu, pduLen) && getFlag(pdu) == FLAG_FINAL_ACK){
                         return;
                     }
-                }
-                else {
+                }else{
                     sendServerControlPacket(info, FLAG_EOF_ACK, NULL, 0);
                     eofTries++;
                 }
             }
-
             return;
         }
     }
 }
 
-int parseFilenamePacket(ServerInfo *info, uint8_t *pdu, int pduLen)
-{
+int parseFilenamePacket(ServerInfo *info, uint8_t *pdu, int pduLen){
     int offset;
     uint32_t netWindow;
     uint32_t netBuffer;
 
-    if (pduLen < HEADER_LEN + 8 + 1) {
+    if (pduLen < HEADER_LEN + 8 + 1){
         return -1;
     }
 
@@ -221,16 +169,15 @@ int parseFilenamePacket(ServerInfo *info, uint8_t *pdu, int pduLen)
 }
 
 
-int checkArgs(int argc, char *argv[])
-{
+int checkArgs(int argc, char *argv[]){
     int portNumber;
 
-    if (argc < 2 || argc > 3) {
+    if (argc < 2 || argc > 3){
         printf("usage: %s error-rate [optional-port-number]\n", argv[0]);
         exit(1);
     }
 
-    if (argc == 3) {
+    if (argc == 3){
         portNumber = atoi(argv[2]);
     }
     else {
@@ -241,8 +188,7 @@ int checkArgs(int argc, char *argv[])
 }
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     int socketNum;
     int portNumber;
     double errorRate;
