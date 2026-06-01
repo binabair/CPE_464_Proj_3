@@ -32,6 +32,7 @@ uint32_t expected = 0;
 uint32_t highest = 0;
 BufferState state = INORDER;
 uint32_t ackSeqNum = 0;
+uint32_t lastSREJ = UINT32_MAX;
 
 void bufferInit(int size){
     int i;
@@ -41,6 +42,7 @@ void bufferInit(int size){
     highest = 0;
     state = INORDER;
     ackSeqNum = 0;
+    lastSREJ = UINT32_MAX;
 
     buffer = malloc(sizeof(BufferEntry) * windowSize);
 
@@ -111,9 +113,9 @@ BufferState inOrderState(int socketNum, int outputFd, uint32_t recvSeq, uint8_t 
 
 BufferState bufferingState(int socketNum, int outputFd, uint32_t recvSeq, uint8_t *payload, int payloadLen, struct sockaddr *client, socklen_t clientLen) {
     if (recvSeq == expected) {
+        lastSREJ = UINT32_MAX;
         writePacketToDisk(outputFd, payload, payloadLen);
         expected++;
-
         return flushingState(socketNum, outputFd, client, clientLen);
     }
 
@@ -124,7 +126,7 @@ BufferState bufferingState(int socketNum, int outputFd, uint32_t recvSeq, uint8_
             highest = recvSeq;
         }
 
-        sendSREJ(socketNum, client, clientLen);
+        sendSREJOnce(socketNum, client, clientLen);
         return BUFFERING;
     }
 
@@ -192,6 +194,14 @@ void sendSREJ(int socketNum, struct sockaddr *client, socklen_t clientLen){
 
 void writePacketToDisk(int outputFd, uint8_t *data, int len){
     write(outputFd, data, len);
+}
+
+void sendSREJOnce(int socketNum, struct sockaddr *client, socklen_t clientLen)
+{
+    if (lastSREJ != expected) {
+        sendSREJ(socketNum, client, clientLen);
+        lastSREJ = expected;
+    }
 }
 
 void bufferPacket(uint32_t seqNum, uint8_t *data, int dataLen){

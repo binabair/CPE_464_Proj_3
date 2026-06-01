@@ -52,7 +52,9 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockad
 
     memset(&info, 0, sizeof(info));
 
-    info.socketNum = socketNum;
+    close(socketNum); //close the parents so the child can get its own
+    info.socketNum = udpServerSetup(0);
+
     info.client = *client;
     info.clientLen = clientLen;
     info.controlSeqNum = 0;
@@ -81,6 +83,7 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockad
 
     bufferFree();
     close(info.outputFd);
+    close(info.socketNum);
 }
 
 int sendServerControlPacket(ServerInfo *info, uint8_t flag, uint8_t *payload, int payloadLen){
@@ -190,7 +193,7 @@ int checkArgs(int argc, char *argv[]){
 int setupServer(int portNumber, double errorRate){
     int socketNum;
 
-    sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
+    sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_OFF, RSEED_ON);
 
     socketNum = udpServerSetup(portNumber);
 

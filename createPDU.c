@@ -19,8 +19,13 @@
 #include "checksum.h" 
 
 int createPDU(uint8_t *pduBuffer, uint32_t seqNum, uint8_t flag, uint8_t * payload, int payloadLen){
+
+    if (payloadLen < 0 || payloadLen > 1400) {
+        return -1;
+    }
+
     uint32_t sequenceNum = htonl(seqNum);
-    memcpy(pduBuffer, &sequenceNum, sizeof(sequenceNum)); 
+    memcpy(pduBuffer, &sequenceNum, sizeof(sequenceNum));
 
     //set the checksum to zero first
     pduBuffer[4] = 0;
@@ -28,7 +33,10 @@ int createPDU(uint8_t *pduBuffer, uint32_t seqNum, uint8_t flag, uint8_t * paylo
 
     pduBuffer[6] = flag;
 
-    memcpy(pduBuffer + 7, payload, payloadLen);
+    if (payloadLen > 0 && payload != NULL) {
+        memcpy(pduBuffer + 7, payload, payloadLen);
+    }
+
     // calculate checksum and put it in the buffer
     uint16_t checksum = in_cksum((unsigned short *)pduBuffer, 7 + payloadLen);
     memcpy(pduBuffer + 4, &checksum, sizeof(checksum));

@@ -158,7 +158,7 @@ RcopyState waitFilenameAckState(RcopyInfo *info){
         return SEND_FILENAME;
     }
 
-    pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, NULL, NULL);
+    pduLen = recvfromErr(info->socketNum, pdu, MAX_PDU_SIZE, 0, (struct sockaddr *)&info->server, &info->serverLen);
 
     if (pduLen <= 0 || !validateChecksum((uint8_t *)pdu, pduLen)){
         return WAIT_FILENAME_ACK;
@@ -417,7 +417,7 @@ void initRcopyInfo(RcopyInfo *info, int argc, char *argv[]){
         exit(1);
     }
 
-    sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_ON, RSEED_OFF);
+    sendtoErr_init(errorRate, DROP_ON, FLIP_ON, DEBUG_OFF, RSEED_ON);
 
     info->socketNum = setupUdpClientToServer(&info->server, argv[6], portNumber);
     info->serverLen = sizeof(info->server);
