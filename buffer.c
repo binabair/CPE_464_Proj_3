@@ -35,7 +35,7 @@ typedef struct{
     BufferState state;
     uint32_t ackSeqNum;
     uint32_t lastSREJ;
-} BufferContext;
+} BufferContext; //too many global variables to haul around so theyre in a struct
 
 static BufferContext context;
 
@@ -145,8 +145,7 @@ BufferState flushingState(int socketNum, int outputFd, struct sockaddr *client, 
     while (1) {
         index = getIndex(context.expected);
 
-        if (context.buffer[index].validFlag == 0 ||
-            context.buffer[index].seqNum != context.expected) {
+        if (context.buffer[index].validFlag == 0 || context.buffer[index].seqNum != context.expected) {
             break;
         }
 
@@ -178,14 +177,7 @@ void sendControl(int socketNum, struct sockaddr *client, socklen_t clientLen, ui
     uint8_t pdu[HEADER_LEN + sizeof(uint32_t)];
     uint32_t netSeq = htonl(controlSeq);
 
-    int pduLen = createPDU(
-        pdu,
-        context.ackSeqNum++,
-        flag,
-        (uint8_t *)&netSeq,
-        sizeof(uint32_t)
-    );
-
+    int pduLen = createPDU(pdu, context.ackSeqNum++, flag, (uint8_t *)&netSeq, sizeof(uint32_t));
     sendtoErr(socketNum, pdu, pduLen, 0, client, clientLen);
 }
 

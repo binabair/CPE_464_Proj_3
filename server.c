@@ -56,7 +56,7 @@ void processClient(int socketNum, uint8_t *firstPDU, int firstLen, struct sockad
     memset(&info, 0, sizeof(info));
 
     close(socketNum); //close the parents so the child can get its own
-    info.socketNum = udpServerSetup(0);
+    info.socketNum = udpServerSetup(0);  //now setup all the server info etc
 
     info.client = *client;
     info.clientLen = clientLen;

@@ -171,12 +171,7 @@ RcopyState waitFilenameAckState(RcopyInfo *info){
         return WAIT_FILENAME_ACK;
     }
 
-    /*
-       Assumption:
-       server sends 1 byte payload:
-       0 = file opened successfully
-       nonzero = file open failed
-    */
+
     if (pduLen > 7 && pdu[7] != 0){
         printf("Error on open of output file: %s\n", info->toFile);
         return DONE;
@@ -402,6 +397,7 @@ void initRcopyInfo(RcopyInfo *info, int argc, char *argv[]){
     int windowSize;
     double errorRate;
 
+    //put together all the infor so its in one place
     portNumber = checkArgs(argc, argv);
 
     info->fromFile = argv[1];
